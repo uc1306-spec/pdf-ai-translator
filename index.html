@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- 변경된 제목 -->
     <title>김망고 이미지 번역 툴</title>
 
     <!-- SEO & Open Graph -->
@@ -11,13 +10,17 @@
     <meta name="keywords" content="김망고, 이미지번역, PDF번역, OCR번역, AI번역기, 무료번역">
     <meta property="og:type" content="website">
     <meta property="og:title" content="김망고 이미지 번역 툴">
-    <meta property="og:description" content="PDF 문서 및 이미지속 텍스트를 깔끔하게 다국어로 AI 통번역해보세요.">
+    <meta property="og:description" content="PDF 문서 및 이미지 속 텍스트를 깔끔하게 다국어로 AI 통번역해보세요.">
+    <meta property="og:image" content="https://uc1306-spec.github.io/pdf-ai-translator/preview.png">
     <meta property="og:url" content="https://uc1306-spec.github.io/pdf-ai-translator/">
 
-    <!-- Tailwind CSS & Icons -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PDF.js library for PDF parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Marked.js for rendering Markdown output -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <script>
@@ -25,8 +28,13 @@
             theme: {
                 extend: {
                     colors: {
-                        brand: {
-                            50: '#fffbebe', 100: '#fef3c7', 500: '#f59e0b', 600: '#d97706', 700: '#b45309',
+                        mango: {
+                            50: '#fffbebe',
+                            100: '#fef3c7',
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                            700: '#b45309',
                         }
                     }
                 }
@@ -35,55 +43,319 @@
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-        .whitespace-nowrap { white-space: nowrap; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        .whitespace-nowrap {
+            white-space: nowrap;
+        }
+        .pdf-canvas-container canvas {
+            max-width: 100%;
+            height: auto !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border-radius: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Clean document text rendering styles */
+        .translated-content h1 { font-size: 1.35rem; font-weight: 700; color: #0f172a; margin-top: 1rem; margin-bottom: 0.5rem; line-height: 1.3; }
+        .translated-content h2 { font-size: 1.15rem; font-weight: 600; color: #1e293b; margin-top: 0.85rem; margin-bottom: 0.4rem; }
+        .translated-content h3 { font-size: 1rem; font-weight: 600; color: #334155; margin-top: 0.75rem; margin-bottom: 0.3rem; }
+        .translated-content p { margin-bottom: 0.75rem; line-height: 1.65; color: #334155; }
+        .translated-content ul, .translated-content ol { margin-left: 1.25rem; margin-bottom: 0.75rem; list-style-type: disc; }
+        .translated-content li { margin-bottom: 0.25rem; line-height: 1.5; }
+        
+        /* High-readability Table styles */
+        .translated-content table { 
+            width: 100%; 
+            border-collapse: separate; 
+            border-spacing: 0; 
+            margin: 1.25rem 0; 
+            font-size: 0.875rem; 
+            border-radius: 0.75rem; 
+            overflow: hidden; 
+            border: 1px solid #e2e8f0; 
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05); 
+        }
+        .translated-content th { 
+            background-color: #f1f5f9; 
+            font-weight: 600; 
+            color: #0f172a; 
+            padding: 0.75rem 1rem; 
+            text-align: left; 
+            border-bottom: 2px solid #cbd5e1; 
+            font-size: 0.8125rem; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em; 
+        }
+        .translated-content td { 
+            padding: 0.75rem 1rem; 
+            border-bottom: 1px solid #e2e8f0; 
+            color: #334155; 
+            vertical-align: top; 
+            line-height: 1.5; 
+        }
+        .translated-content tr:last-child td { 
+            border-bottom: none; 
+        }
+        .translated-content tr:nth-child(even) td { 
+            background-color: #f8fafc; 
+        }
+        .translated-content tr:hover td { 
+            background-color: #f0f3f9; 
+        }
+
+        .translated-content blockquote { border-left: 4px solid #f59e0b; padding-left: 0.75rem; color: #475569; font-style: italic; margin: 0.75rem 0; }
+        .translated-content .ai-summary-block, .translated-content .ai-vocab-block {
+            background-color: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-top: 1.25rem;
+        }
+        .translated-content .ai-vocab-block {
+            background-color: #f0f9ff;
+            border-color: #bae6fd;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
 
-    <!-- 모바일 최적화 헤더 -->
+    <!-- Navigation Header (모바일 카카오톡 대응 최적화) -->
     <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-xs">
         <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            
-            <!-- 타이틀 (김망고 이미지 번역 툴) -->
             <div class="flex items-center space-x-3 min-w-0">
-                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500 flex items-center justify-center text-white shadow-md shrink-0">
-                    <i class="fa-solid fa-mango text-lg sm:text-xl">🥭</i>
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500 flex items-center justify-center text-white shadow-md shadow-amber-200 shrink-0 text-xl">
+                    🥭
                 </div>
                 <div class="min-w-0 flex-1">
-                    <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">
-                        김망고 이미지 번역 툴
-                    </h1>
-                    <p class="text-xs text-slate-500 font-medium truncate">
-                        Gemini 3 Flash Vision Powered AI 통번역기
-                    </p>
+                    <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">김망고 이미지 번역 툴</h1>
+                    <p class="text-xs text-slate-500 font-medium truncate">Gemini 3 Flash Vision Powered 다국어 문서/이미지 통번역기</p>
                 </div>
             </div>
 
-            <!-- 우측 액션 버튼 -->
             <div class="flex items-center gap-2 shrink-0 self-end sm:self-auto w-full sm:w-auto justify-end">
-                <button id="openApiKeyBtn" class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-all whitespace-nowrap">
+                <button id="apiKeyBtn" class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-all whitespace-nowrap">
                     <i class="fa-solid fa-key text-amber-600"></i>
-                    <span>API 키 설정</span>
+                    <span id="apiKeyBtnText">API 키 설정</span>
                 </button>
-                <button id="sampleDocBtn" class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-orange-800 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-all whitespace-nowrap">
+                <button id="samplePdfBtn" class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-orange-800 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-all whitespace-nowrap">
                     <i class="fa-solid fa-wand-magic-sparkles text-orange-600"></i>
                     <span>샘플 문서 테스트</span>
                 </button>
             </div>
-
         </div>
     </header>
 
-    <!-- 메인 컨텐츠 영역 -->
-    <main class="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 space-y-8">
-        
-        <!-- 번역 작업 메인 영역 (기존 로직 유지) -->
-        <section class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs text-center">
-            <p class="text-slate-600 font-medium">🥭 이미지 및 PDF 문서를 업로드하여 번역을 진행해 보세요.</p>
-        </section>
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
 
-        <!-- 하단 비회원 댓글 / 방명록 영역 -->
+        <!-- Top Options Bar / Controls -->
+        <div class="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-xs">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <!-- Target Language Select -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
+                        <i class="fa-solid fa-globe text-amber-500 mr-1"></i> 번역할 언어 (Target)
+                    </label>
+                    <select id="targetLanguage" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition">
+                        <option value="Korean" selected>한국어 (Korean)</option>
+                        <option value="English">영어 (English)</option>
+                        <option value="Japanese">일본어 (Japanese)</option>
+                        <option value="Chinese (Simplified)">중국어 간체 (Chinese)</option>
+                        <option value="Spanish">스페인어 (Spanish)</option>
+                        <option value="French">프랑스어 (French)</option>
+                        <option value="German">독일어 (German)</option>
+                        <option value="Vietnamese">베트남어 (Vietnamese)</option>
+                        <option value="Thai">태국어 (Thai)</option>
+                        <option value="Russian">러시아어 (Russian)</option>
+                    </select>
+                </div>
+
+                <!-- Translation Style/Tone -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
+                        <i class="fa-solid fa-sliders text-amber-500 mr-1"></i> 번역 어조 / 스타일
+                    </label>
+                    <select id="translationTone" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition">
+                        <option value="Natural and Fluent Professional">자연스럽고 전문적인 톤</option>
+                        <option value="Formal Academic/Business">격식 있는 비즈니스 / 학술체</option>
+                        <option value="Easy Conversational">기본 친근한 구어체</option>
+                        <option value="Detailed with Key Terms Explanation">용어 설명이 포함된 정밀 번역</option>
+                    </select>
+                </div>
+
+                <!-- Action Mode -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
+                        <i class="fa-solid fa-list-check text-amber-500 mr-1"></i> AI 동작 방식
+                    </label>
+                    <select id="actionMode" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition">
+                        <option value="Full Translation" selected>전체 문서 통번역</option>
+                        <option value="Translation + Summary">통번역 + 주요 내용 요약</option>
+                        <option value="Key Vocabulary Extraction">통번역 + 핵심 용어집 추출</option>
+                    </select>
+                </div>
+
+                <!-- Translate Action Button -->
+                <div>
+                    <button id="translateBtn" disabled class="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl px-4 py-2.5 text-sm shadow-md shadow-amber-200 transition duration-200 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span id="translateBtnText">번역 시작하기</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Drag & Drop PDF / Image Upload Dropzone (When no file uploaded) -->
+        <div id="dropzoneArea" class="bg-white rounded-2xl border-2 border-dashed border-slate-300 hover:border-amber-400 transition p-8 text-center cursor-pointer flex flex-col items-center justify-center min-h-[260px] group shadow-xs">
+            <input type="file" id="pdfFileInput" accept="application/pdf, image/png, image/jpeg, image/jpg, image/webp" multiple class="hidden" />
+            <div class="flex items-center justify-center gap-3 mb-4">
+                <div class="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-110 transition duration-300">
+                    <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center group-hover:scale-110 transition duration-300">
+                    <i class="fa-regular fa-image text-xl"></i>
+                </div>
+            </div>
+            <h3 class="font-semibold text-slate-800 text-base mb-1">PDF 또는 이미지 파일(PNG, JPG, WEBP)을 업로드하세요</h3>
+            <p class="text-xs text-slate-500 max-w-sm mb-4">스캔한 PDF, 문서 캡처 이미지, 영수증, 표, 논문 등에서 Vision OCR로 글자를 추출해 번역합니다.</p>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+                    <i class="fa-regular fa-file-pdf text-red-500"></i> PDF 문서
+                </span>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+                    <i class="fa-regular fa-file-image text-emerald-500"></i> 이미지 (PNG/JPG/WEBP)
+                </span>
+            </div>
+        </div>
+
+        <!-- Document Loaded View (Hidden initially) -->
+        <div id="documentView" class="hidden flex-1 flex flex-col gap-4">
+
+            <!-- File Header Info & Page Navigation Controls -->
+            <div class="bg-white border border-slate-200 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                <div class="flex items-center gap-3">
+                    <div id="fileTypeIcon" class="w-9 h-9 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-file-pdf"></i>
+                    </div>
+                    <div>
+                        <div id="fileName" class="font-semibold text-sm text-slate-800 truncate max-w-xs sm:max-w-md">filename.pdf</div>
+                        <div id="fileMeta" class="text-xs text-slate-500">총 0페이지 • 준비 완료</div>
+                    </div>
+                </div>
+
+                <!-- Page Controls -->
+                <div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                    <button id="prevPageBtn" class="p-1 rounded-lg hover:bg-white text-slate-600 disabled:opacity-40 transition">
+                        <i class="fa-solid fa-chevron-left text-xs"></i>
+                    </button>
+                    <span class="text-xs font-medium text-slate-700 px-2">
+                        페이지 <span id="currentPageNum" class="font-bold text-amber-600">1</span> / <span id="totalPagesNum">1</span>
+                    </span>
+                    <button id="nextPageBtn" class="p-1 rounded-lg hover:bg-white text-slate-600 disabled:opacity-40 transition">
+                        <i class="fa-solid fa-chevron-right text-xs"></i>
+                    </button>
+                </div>
+
+                <!-- Utilities -->
+                <div class="flex items-center gap-2">
+                    <button id="ttsBtn" title="번역 음성 듣기" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-amber-50 hover:text-amber-600 text-xs font-medium transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-volume-high text-amber-500"></i>
+                        <span id="ttsBtnText">읽어주기</span>
+                    </button>
+                    <button id="copyBtn" title="번역본 복사" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-amber-50 hover:text-amber-600 text-xs font-medium transition flex items-center gap-1.5">
+                        <i class="fa-regular fa-copy"></i>
+                        <span>텍스트 복사</span>
+                    </button>
+                    <button id="exportTxtBtn" title="텍스트 파일로 저장" class="px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-download"></i>
+                        <span>TXT 저장</span>
+                    </button>
+                    <button id="reuploadBtn" title="다른 파일 업로드" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-600 text-xs transition">
+                        <i class="fa-solid fa-arrow-rotate-left"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Bar (Visible during batch processing) -->
+            <div id="progressContainer" class="hidden bg-amber-50 border border-amber-100 rounded-xl p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span id="progressStatus" class="text-xs font-semibold text-amber-900 flex items-center gap-2">
+                        <i class="fa-solid fa-spinner fa-spin text-amber-600"></i>
+                        AI가 문서 페이지를 번역 중입니다...
+                    </span>
+                    <span id="progressPercent" class="text-xs font-bold text-amber-700">0%</span>
+                </div>
+                <div class="w-full bg-amber-200 rounded-full h-2 overflow-hidden">
+                    <div id="progressBar" class="bg-amber-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Hidden Canvas for Offscreen PDF Processing & Scanned OCR -->
+            <canvas id="pdfRenderCanvas" class="hidden"></canvas>
+
+            <!-- Full-Width Translation Display Container -->
+            <div id="displayContainer" class="w-full flex flex-col gap-4">
+                
+                <!-- Main AI Translated Text Output Box -->
+                <div id="translationContainer" class="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 flex flex-col min-h-[550px] shadow-xs">
+                    <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                                <i class="fa-solid fa-language text-base"></i>
+                            </div>
+                            <div>
+                                <h2 id="translationTitle" class="font-bold text-base text-slate-800">AI 통번역 결과</h2>
+                                <p class="text-xs text-slate-400">Gemini 3 Flash Vision 기반 맞춤형 원문 해석</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="currentLangTag" class="text-xs bg-amber-50 text-amber-800 font-semibold px-3 py-1 rounded-full border border-amber-100">한국어</span>
+                        </div>
+                    </div>
+
+                    <!-- Main Translated Content View Area -->
+                    <div id="translatedOutput" class="translated-content flex-1 overflow-auto custom-scrollbar bg-slate-50/60 rounded-xl p-6 sm:p-8 border border-slate-200/80 text-slate-800 text-base leading-relaxed relative min-h-[400px]">
+                        <div class="h-full min-h-[350px] flex flex-col items-center justify-center text-center text-slate-400 p-6">
+                            <i class="fa-solid fa-wand-magic-sparkles text-5xl mb-4 text-amber-300 animate-pulse"></i>
+                            <h3 class="font-semibold text-slate-700 text-lg mb-1">상단의 [번역 시작하기] 버튼을 누르세요.</h3>
+                            <p class="text-sm text-slate-400 max-w-md">Gemini AI가 문서를 분석하여 가독성에 최적화된 깔끔한 스타일로 번역해 드립니다.</p>
+                        </div>
+                    </div>
+
+                    <!-- Extracted Text Collapsible Details Drawer -->
+                    <details class="mt-4 text-xs text-slate-600 bg-slate-50 rounded-xl p-3 border border-slate-200/80">
+                        <summary class="cursor-pointer font-semibold text-amber-600 hover:text-amber-700 transition flex items-center justify-between">
+                            <span class="flex items-center gap-1.5">
+                                <i class="fa-solid fa-file-lines"></i>
+                                <span>인식된 원본 텍스트 확인하기</span>
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                        </summary>
+                        <div id="extractedRawText" class="mt-2.5 p-3 bg-white rounded-lg border border-slate-200 max-h-40 overflow-y-auto whitespace-pre-wrap font-mono text-[11px] text-slate-700 leading-normal">
+                            텍스트 추출 또는 Vision OCR을 기다리는 중...
+                        </div>
+                    </details>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 하단 댓글 및 방명록 영역 (로그인 필요 없음) -->
         <section class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-6">
             <div class="flex items-center justify-between border-b border-slate-100 pb-4">
                 <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -93,12 +365,12 @@
                 <span id="commentCount" class="text-xs font-semibold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">0개</span>
             </div>
 
-            <!-- 댓글 작성 폼 (로그인 필요 없음) -->
+            <!-- 댓글 작성 폼 -->
             <form id="commentForm" class="space-y-3">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input type="text" id="commentAuthor" placeholder="닉네임 (예: 망고좋아)" required
                            class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400">
-                    <input type="password" id="commentPw" placeholder="비밀번호 (삭제용)" required
+                    <input type="password" id="commentPw" placeholder="비밀번호 (삭제 시 필요)" required
                            class="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400">
                 </div>
                 <textarea id="commentText" rows="3" placeholder="자유롭게 댓글이나 건의사항을 남겨주세요!" required
@@ -113,7 +385,6 @@
 
             <!-- 댓글 목록 -->
             <div id="commentList" class="space-y-3 pt-2">
-                <!-- 댓글이 없을 경우 기본 메시지 -->
                 <p id="emptyCommentMsg" class="text-center text-xs text-slate-400 py-6">
                     첫 번째 댓글을 작성해 보세요! 🥭
                 </p>
@@ -122,8 +393,798 @@
 
     </main>
 
-    <!-- 댓글 로컬 스토리지 작동 스크립트 -->
+    <!-- Toast Notification Popup -->
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white text-xs font-medium px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5 z-50">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMsg">알림 메시지</span>
+    </div>
+
+    <!-- API Key Settings Modal -->
+    <div id="apiKeyModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2 text-slate-900 font-bold text-lg">
+                    <i class="fa-solid fa-key text-amber-500"></i>
+                    <span>Gemini API 키 설정</span>
+                </div>
+                <button id="closeApiKeyModal" class="text-slate-400 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+                다운로드한 파일(로컬 PC)이나 무료 웹사이트에서 실행하려면 Gemini API 키가 필요합니다. 키는 브라우저(LocalStorage)에만 안전하게 저장됩니다.
+            </p>
+            <div class="mb-4">
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Google Gemini API Key</label>
+                <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition" />
+            </div>
+            <div class="flex items-center justify-between gap-3">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-xs text-amber-600 hover:underline flex items-center gap-1 font-medium">
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                    <span>무료 API 키 발급받기 (Google AI Studio)</span>
+                </a>
+                <button id="saveApiKeyBtn" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-amber-200 transition">
+                    저장하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
     <script>
+        // Configure PDF.js Worker URL
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // Application State
+        const state = {
+            fileType: 'pdf', // 'pdf' or 'image'
+            pdfDoc: null,
+            pdfFileName: '',
+            totalPages: 0,
+            currentPage: 1,
+            pagesText: [],
+            pageImageData: [],
+            translatedPages: [],
+            auxiliaryInfo: [],
+            isProcessing: false,
+            geminiApiKey: localStorage.getItem('gemini_api_key') || ""
+        };
+
+        // DOM Elements
+        const dropzoneArea = document.getElementById('dropzoneArea');
+        const pdfFileInput = document.getElementById('pdfFileInput');
+        const documentView = document.getElementById('documentView');
+        const fileNameEl = document.getElementById('fileName');
+        const fileMetaEl = document.getElementById('fileMeta');
+        const fileTypeIcon = document.getElementById('fileTypeIcon');
+        const currentPageNumEl = document.getElementById('currentPageNum');
+        const totalPagesNumEl = document.getElementById('totalPagesNum');
+        const prevPageBtn = document.getElementById('prevPageBtn');
+        const nextPageBtn = document.getElementById('nextPageBtn');
+        const translateBtn = document.getElementById('translateBtn');
+        const translateBtnText = document.getElementById('translateBtnText');
+        const samplePdfBtn = document.getElementById('samplePdfBtn');
+        const pdfRenderCanvas = document.getElementById('pdfRenderCanvas');
+        const extractedRawTextEl = document.getElementById('extractedRawText');
+        const translatedOutputEl = document.getElementById('translatedOutput');
+        const currentLangTag = document.getElementById('currentLangTag');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressStatus = document.getElementById('progressStatus');
+        const ttsBtn = document.getElementById('ttsBtn');
+        const ttsBtnText = document.getElementById('ttsBtnText');
+        const copyBtn = document.getElementById('copyBtn');
+        const exportTxtBtn = document.getElementById('exportTxtBtn');
+        const reuploadBtn = document.getElementById('reuploadBtn');
+
+        // Modal Elements
+        const apiKeyBtn = document.getElementById('apiKeyBtn');
+        const apiKeyModal = document.getElementById('apiKeyModal');
+        const closeApiKeyModal = document.getElementById('closeApiKeyModal');
+        const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+
+        // API Key Handlers
+        apiKeyBtn.addEventListener('click', () => {
+            apiKeyInput.value = state.geminiApiKey;
+            apiKeyModal.classList.remove('hidden');
+        });
+
+        closeApiKeyModal.addEventListener('click', () => {
+            apiKeyModal.classList.add('hidden');
+        });
+
+        saveApiKeyBtn.addEventListener('click', () => {
+            const key = apiKeyInput.value.trim();
+            state.geminiApiKey = key;
+            localStorage.setItem('gemini_api_key', key);
+            apiKeyModal.classList.add('hidden');
+            showToast("API 키가 저장되었습니다!");
+        });
+
+        function getActiveApiKey() {
+            return state.geminiApiKey || localStorage.getItem('gemini_api_key') || "";
+        }
+
+        function showToast(message, iconClass = "fa-circle-check text-emerald-400") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+            
+            toastMsg.textContent = message;
+            toastIcon.className = `fa-solid ${iconClass}`;
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Dropzone Handlers
+        dropzoneArea.addEventListener('click', () => pdfFileInput.click());
+
+        dropzoneArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzoneArea.classList.add('border-amber-500', 'bg-amber-50/50');
+        });
+
+        dropzoneArea.addEventListener('dragleave', () => {
+            dropzoneArea.classList.remove('border-amber-500', 'bg-amber-50/50');
+        });
+
+        dropzoneArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzoneArea.classList.remove('border-amber-500', 'bg-amber-50/50');
+            if (e.dataTransfer.files.length > 0) {
+                handleUploadedFiles(Array.from(e.dataTransfer.files));
+            }
+        });
+
+        pdfFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleUploadedFiles(Array.from(e.target.files));
+            }
+        });
+
+        reuploadBtn.addEventListener('click', () => {
+            state.pdfDoc = null;
+            state.pagesText = [];
+            state.pageImageData = [];
+            state.translatedPages = [];
+            dropzoneArea.classList.remove('hidden');
+            documentView.classList.add('hidden');
+            translateBtn.disabled = true;
+            pdfFileInput.value = '';
+        });
+
+        prevPageBtn.addEventListener('click', () => {
+            if (state.currentPage > 1) {
+                state.currentPage--;
+                renderPage(state.currentPage);
+            }
+        });
+
+        nextPageBtn.addEventListener('click', () => {
+            if (state.currentPage < state.totalPages) {
+                state.currentPage++;
+                renderPage(state.currentPage);
+            }
+        });
+
+        async function handleUploadedFiles(files) {
+            const pdfFile = files.find(f => f.type === 'application/pdf');
+            const imageFiles = files.filter(f => f.type.startsWith('image/'));
+
+            if (pdfFile) {
+                await loadPdfFile(pdfFile);
+            } else if (imageFiles.length > 0) {
+                await loadImageFiles(imageFiles);
+            } else {
+                showToast("PDF 또는 이미지(PNG, JPG, WEBP) 파일만 지원됩니다.", "fa-triangle-exclamation text-amber-400");
+            }
+        }
+
+        async function loadPdfFile(file) {
+            try {
+                showToast("PDF 문서를 읽는 중입니다...", "fa-spinner fa-spin text-amber-400");
+                const arrayBuffer = await file.arrayBuffer();
+                state.fileType = 'pdf';
+                state.pdfFileName = file.name;
+                
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                state.pdfDoc = pdf;
+                state.totalPages = pdf.numPages;
+                state.currentPage = 1;
+                state.pagesText = new Array(pdf.numPages).fill('');
+                state.pageImageData = new Array(pdf.numPages).fill(null);
+                state.translatedPages = new Array(pdf.numPages).fill('');
+                state.auxiliaryInfo = new Array(pdf.numPages).fill('');
+
+                fileNameEl.textContent = file.name;
+                fileMetaEl.textContent = `PDF 문서 • 총 ${pdf.numPages}페이지 • ${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+                fileTypeIcon.className = "w-9 h-9 rounded-lg bg-red-100 text-red-600 flex items-center justify-center font-bold";
+                fileTypeIcon.innerHTML = `<i class="fa-solid fa-file-pdf"></i>`;
+                totalPagesNumEl.textContent = pdf.numPages;
+                currentPageNumEl.textContent = 1;
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    state.pagesText[i - 1] = pageText;
+                }
+
+                dropzoneArea.classList.add('hidden');
+                documentView.classList.remove('hidden');
+                translateBtn.disabled = false;
+
+                await renderPage(state.currentPage);
+                showToast("PDF 로드 완료! 번역 언어를 선택 후 번역을 시작하세요.");
+
+            } catch (err) {
+                console.error("PDF Load Error:", err);
+                showToast("PDF 파일을 해석하는 중 오류가 발생했습니다.", "fa-circle-xmark text-red-400");
+            }
+        }
+
+        function normalizeMimeType(type) {
+            if (!type) return 'image/png';
+            const lower = type.toLowerCase();
+            if (lower === 'image/jpg') return 'image/jpeg';
+            if (['image/png', 'image/jpeg', 'image/webp'].includes(lower)) return lower;
+            return 'image/png';
+        }
+
+        async function loadImageFiles(files) {
+            try {
+                showToast("이미지 파일을 준비 중입니다...", "fa-spinner fa-spin text-amber-400");
+                state.fileType = 'image';
+                state.pdfDoc = null;
+                state.pdfFileName = files.length === 1 ? files[0].name : `이미지 세트 (${files.length}개 파일)`;
+                state.totalPages = files.length;
+                state.currentPage = 1;
+                state.pagesText = new Array(files.length).fill('');
+                state.pageImageData = [];
+                state.translatedPages = new Array(files.length).fill('');
+                state.auxiliaryInfo = new Array(files.length).fill('');
+
+                for (let i = 0; i < files.length; i++) {
+                    const base64 = await readFileAsBase64(files[i]);
+                    const cleanMime = normalizeMimeType(files[i].type);
+                    state.pageImageData.push({
+                        mimeType: cleanMime,
+                        base64Data: base64.split(',')[1],
+                        fullDataUrl: base64
+                    });
+                }
+
+                fileNameEl.textContent = state.pdfFileName;
+                fileMetaEl.textContent = `이미지 문서 • 총 ${files.length}개 페이지 • Vision OCR 분석 지원`;
+                fileTypeIcon.className = "w-9 h-9 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold";
+                fileTypeIcon.innerHTML = `<i class="fa-regular fa-image"></i>`;
+                totalPagesNumEl.textContent = files.length;
+                currentPageNumEl.textContent = 1;
+
+                dropzoneArea.classList.add('hidden');
+                documentView.classList.remove('hidden');
+                translateBtn.disabled = false;
+
+                await renderPage(state.currentPage);
+                performVisionOCRForCurrentPage(1);
+
+                showToast("이미지 업로드 완료! [번역 시작하기]를 누르면 번역됩니다.");
+
+            } catch (err) {
+                console.error("Image Load Error:", err);
+                showToast("이미지 로드 중 오류가 발생했습니다.", "fa-circle-xmark text-red-400");
+            }
+        }
+
+        async function performVisionOCRForCurrentPage(pageIndex) {
+            const imgData = state.pageImageData[pageIndex - 1];
+            if (!imgData || state.pagesText[pageIndex - 1]) return;
+
+            extractedRawTextEl.textContent = "AI가 이미지 속 텍스트를 인식/추출하는 중입니다...";
+
+            try {
+                const key = getActiveApiKey();
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`;
+                const payload = {
+                    contents: [{
+                        parts: [
+                            { inlineData: { mimeType: imgData.mimeType, data: imgData.base64Data } },
+                            { text: "Extract all text visible in this image verbatim. Do not translate. Return plain extracted text only." }
+                        ]
+                    }]
+                };
+
+                const res = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!res.ok) {
+                    if (res.status === 400 || res.status === 403) {
+                        apiKeyModal.classList.remove('hidden');
+                        throw new Error("API 키 확인 필요");
+                    }
+                }
+
+                const data = await res.json();
+                const extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text || "텍스트를 추출할 수 없습니다.";
+
+                state.pagesText[pageIndex - 1] = extractedText;
+                if (state.currentPage === pageIndex) {
+                    extractedRawTextEl.textContent = extractedText;
+                }
+            } catch (e) {
+                console.warn("Auto Vision OCR failed:", e);
+                extractedRawTextEl.textContent = "번역 시작 시 Vision OCR이 구동되어 텍스트를 번역합니다.";
+            }
+        }
+
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function renderPage(pageNum) {
+            currentPageNumEl.textContent = pageNum;
+            prevPageBtn.disabled = (pageNum <= 1);
+            nextPageBtn.disabled = (pageNum >= state.totalPages);
+
+            if (state.fileType === 'pdf') {
+                extractedRawTextEl.textContent = state.pagesText[pageNum - 1]?.trim() 
+                    ? state.pagesText[pageNum - 1] 
+                    : "이 페이지는 스캔된 PDF입니다. 번역 시작 시 Gemini Vision OCR이 문자를 인식합니다.";
+            } else {
+                extractedRawTextEl.textContent = state.pagesText[pageNum - 1]?.trim()
+                    ? state.pagesText[pageNum - 1]
+                    : "이미지 속 텍스트를 분석 중이거나 번역 준비 중입니다...";
+            }
+
+            const canvas = pdfRenderCanvas;
+            const context = canvas.getContext('2d');
+
+            if (state.fileType === 'pdf' && state.pdfDoc) {
+                const page = await state.pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 1.5 });
+                
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                const renderContext = { canvasContext: context, viewport: viewport };
+                await page.render(renderContext).promise;
+
+                if (!state.pagesText[pageNum - 1]?.trim()) {
+                    const dataUrl = canvas.toDataURL('image/png');
+                    state.pageImageData[pageNum - 1] = {
+                        mimeType: 'image/png',
+                        base64Data: dataUrl.split(',')[1],
+                        fullDataUrl: dataUrl
+                    };
+                }
+            } else if (state.fileType === 'image' && state.pageImageData[pageNum - 1]) {
+                const img = new Image();
+                await new Promise((resolve) => {
+                    img.onload = () => {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        context.drawImage(img, 0, 0);
+                        resolve();
+                    };
+                    img.onerror = () => resolve();
+                    img.src = state.pageImageData[pageNum - 1].fullDataUrl;
+                });
+            }
+
+            if (state.translatedPages[pageNum - 1]) {
+                translatedOutputEl.innerHTML = state.translatedPages[pageNum - 1];
+            } else {
+                translatedOutputEl.innerHTML = `
+                    <div class="h-full min-h-[350px] flex flex-col items-center justify-center text-center text-slate-400 p-6">
+                        <i class="fa-solid fa-wand-magic-sparkles text-5xl mb-4 text-amber-300 animate-pulse"></i>
+                        <h3 class="font-semibold text-slate-700 text-lg mb-1">이 페이지는 아직 번역되지 않았습니다.</h3>
+                        <p class="text-sm text-slate-400 max-w-md">상단의 [번역 시작하기] 버튼을 누르시면 AI가 정밀하게 번역해드립니다.</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function callGeminiTranslation(text, pageImageData, targetLang, tone, mode) {
+            const key = getActiveApiKey();
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`;
+
+            let prompt = `Act as an expert document translator. 
+Translate all text into: ${targetLang}.
+Style/Tone: ${tone}.
+
+Formatting Requirements:
+1. Carefully extract and translate all visible content (headings, paragraphs, bullet points, tables).
+2. Format the response with clean, semantic HTML elements (use <h1>, <h2>, <h3>, <p>, <ul>, <li>, <strong>, <table>, <thead>, <tbody>, <tr>, <th>, <td>).
+3. Table Formatting Rules:
+   - Convert any tabular data or financial/analytic tables into clean HTML <table> structures with <thead> and <tbody>.
+   - Use distinct header cells (<th>) and data cells (<td>).
+   - Ensure table formatting is clear, structured, readable, and properly aligned.
+4. Do NOT output code block backticks like \`\`\`html. Return pure, clean HTML directly.`;
+
+            if (mode === "Translation + Summary") {
+                prompt += `\n\nAt the end of the translation, add a section wrapped in <div class="ai-summary-block"><strong><i class="fa-solid fa-lightbulb"></i> 핵심 요약 (Summary)</strong><ul><li>...</li></ul></div> summarizing the main points in ${targetLang}.`;
+            } else if (mode === "Key Vocabulary Extraction") {
+                prompt += `\n\nAt the end of the translation, add a section wrapped in <div class="ai-vocab-block"><strong><i class="fa-solid fa-book"></i> 주요 용어집 (Vocabulary)</strong><table><thead><tr><th>원문 용어</th><th>${targetLang} 번역 및 설명</th></tr></thead><tbody>...</tbody></table></div>`;
+            }
+
+            const parts = [];
+            if (pageImageData && pageImageData.base64Data) {
+                const safeMime = normalizeMimeType(pageImageData.mimeType);
+                parts.push({ inlineData: { mimeType: safeMime, data: pageImageData.base64Data } });
+                parts.push({ text: prompt + "\n\nExtract and translate all content from this document image." });
+            } else {
+                parts.push({ text: prompt + `\n\nText to translate:\n"""\n${text}\n"""` });
+            }
+
+            const payload = {
+                contents: [{ parts: parts }],
+                systemInstruction: {
+                    parts: [{ text: "You are a professional document translator providing accurate, beautifully structured, and clean text output." }]
+                }
+            };
+
+            let delay = 1000;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 400 || response.status === 403) {
+                            apiKeyModal.classList.remove('hidden');
+                            throw new Error("Gemini API 키가 필요합니다. 상단 [API 키 설정] 버튼을 누르세요.");
+                        }
+                        const errBody = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errBody}`);
+                    }
+
+                    const data = await response.json();
+                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "번역 결과를 생성하지 못했습니다.";
+                } catch (err) {
+                    if (attempt === 2) throw err;
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        translateBtn.addEventListener('click', async () => {
+            if (state.isProcessing) return;
+
+            if (!getActiveApiKey()) {
+                apiKeyModal.classList.remove('hidden');
+                showToast("Gemini API 키 설정이 필요합니다.", "fa-triangle-exclamation text-amber-400");
+                return;
+            }
+
+            const targetLang = document.getElementById('targetLanguage').value;
+            const tone = document.getElementById('translationTone').value;
+            const mode = document.getElementById('actionMode').value;
+
+            currentLangTag.textContent = targetLang;
+            state.isProcessing = true;
+            translateBtn.disabled = true;
+            translateBtnText.textContent = "번역 실행 중...";
+
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            progressPercent.textContent = '0%';
+
+            for (let i = 0; i < state.totalPages; i++) {
+                const pageNum = i + 1;
+                const rawText = state.pagesText[i];
+                const imgData = state.pageImageData[i];
+
+                progressStatus.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-amber-600"></i> ${pageNum} / ${state.totalPages} 페이지 번역 중...`;
+                const percent = Math.round((i / state.totalPages) * 100);
+                progressBar.style.width = `${percent}%`;
+                progressPercent.textContent = `${percent}%`;
+
+                try {
+                    let translationResult = await callGeminiTranslation(rawText, imgData, targetLang, tone, mode);
+                    translationResult = translationResult.replace(/```html/g, '').replace(/```/g, '');
+                    state.translatedPages[i] = translationResult;
+
+                    if (pageNum === state.currentPage) {
+                        renderPage(state.currentPage);
+                    }
+                } catch (err) {
+                    console.error(`Page ${pageNum} Translation Failed:`, err);
+                    state.translatedPages[i] = `<div class="p-4 bg-red-50 text-red-700 rounded-lg">페이지 ${pageNum} 번역 도중 오류가 발생했습니다.</div>`;
+                }
+            }
+
+            progressBar.style.width = '100%';
+            progressPercent.textContent = '100%';
+            progressStatus.innerHTML = `<i class="fa-solid fa-check text-emerald-600"></i> 모든 페이지 번역이 완료되었습니다!`;
+
+            state.isProcessing = false;
+            translateBtn.disabled = false;
+            translateBtnText.textContent = "번역 다시 실행";
+            showToast("전체 번역이 완료되었습니다!");
+
+            renderPage(state.currentPage);
+        });
+
+        // TTS Reader
+        let currentAudio = null;
+        ttsBtn.addEventListener('click', async () => {
+            const currentTranslatedHtml = state.translatedPages[state.currentPage - 1];
+            if (!currentTranslatedHtml) {
+                showToast("먼저 번역을 실행해 주세요.", "fa-triangle-exclamation text-amber-400");
+                return;
+            }
+
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = currentTranslatedHtml;
+            const plainText = tempDiv.innerText.substring(0, 500);
+
+            if (currentAudio && !currentAudio.paused) {
+                currentAudio.pause();
+                ttsBtnText.textContent = "읽어주기";
+                return;
+            }
+
+            ttsBtnText.textContent = "생성 중...";
+            showToast("Gemini AI 오디오를 생성 중입니다...", "fa-spinner fa-spin text-amber-400");
+
+            try {
+                const key = getActiveApiKey();
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${key}`;
+                const payload = {
+                    contents: [{ parts: [{ text: `Say clearly: ${plainText}` }] }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } }
+                    }
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                const part = data?.candidates?.[0]?.content?.parts?.[0];
+                const base64Audio = part?.inlineData?.data;
+                const mimeType = part?.inlineData?.mimeType;
+
+                if (base64Audio && mimeType) {
+                    const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+                    const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 24000;
+                    
+                    const pcmData = base64ToArrayBuffer(base64Audio);
+                    const pcm16 = new Int16Array(pcmData);
+                    const wavBlob = pcmToWav(pcm16, sampleRate);
+                    const audioUrl = URL.createObjectURL(wavBlob);
+
+                    currentAudio = new Audio(audioUrl);
+                    currentAudio.play();
+                    ttsBtnText.textContent = "정지";
+
+                    currentAudio.onended = () => { ttsBtnText.textContent = "읽어주기"; };
+                } else {
+                    throw new Error("TTS Audio payload not found");
+                }
+            } catch (err) {
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(plainText);
+                    utterance.lang = 'ko-KR';
+                    window.speechSynthesis.speak(utterance);
+                    ttsBtnText.textContent = "재생 중...";
+                    utterance.onend = () => { ttsBtnText.textContent = "읽어주기"; };
+                } else {
+                    showToast("음성 합성을 지원하지 않는 브라우저입니다.", "fa-circle-xmark text-red-400");
+                    ttsBtnText.textContent = "읽어주기";
+                }
+            }
+        });
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function pcmToWav(pcm16, sampleRate) {
+            const numChannels = 1;
+            const bytesPerSample = 2;
+            const blockAlign = numChannels * bytesPerSample;
+            const byteRate = sampleRate * blockAlign;
+            const dataSize = pcm16.length * bytesPerSample;
+            const buffer = new ArrayBuffer(44 + dataSize);
+            const view = new DataView(buffer);
+
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + dataSize, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, byteRate, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, 16, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataSize, true);
+
+            let offset = 44;
+            for (let i = 0; i < pcm16.length; i++, offset += 2) {
+                view.setInt16(offset, pcm16[i], true);
+            }
+
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        copyBtn.addEventListener('click', () => {
+            const currentTranslatedHtml = state.translatedPages[state.currentPage - 1];
+            if (!currentTranslatedHtml) {
+                showToast("복사할 번역 내용이 없습니다.");
+                return;
+            }
+
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = currentTranslatedHtml;
+            const textToCopy = tempDiv.innerText;
+
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            showToast("현재 페이지 번역 텍스트가 클립보드에 복사되었습니다!");
+        });
+
+        exportTxtBtn.addEventListener('click', () => {
+            if (state.translatedPages.every(p => !p)) {
+                showToast("다운로드할 번역 데이터가 없습니다.", "fa-triangle-exclamation text-amber-400");
+                return;
+            }
+
+            let fullContent = `=======================================\n`;
+            fullContent += `김망고 이미지 번역 보고서\n`;
+            fullContent += `파일명: ${state.pdfFileName}\n`;
+            fullContent += `번역 언어: ${document.getElementById('targetLanguage').value}\n`;
+            fullContent += `=======================================\n\n`;
+
+            state.translatedPages.forEach((html, idx) => {
+                const temp = document.createElement('div');
+                temp.innerHTML = html || '번역되지 않음';
+                fullContent += `--- [ 페이지 ${idx + 1} ] ---\n\n${temp.innerText}\n\n`;
+            });
+
+            const blob = new Blob([fullContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `MangoTranslated_${state.pdfFileName.replace('.pdf', '')}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showToast("전체 번역 결과 TXT 파일 다운로드가 시작되었습니다.");
+        });
+
+        // Sample Demo PDF Generator
+        samplePdfBtn.addEventListener('click', () => {
+            state.pdfFileName = "AI_Research_Sample.pdf";
+            state.totalPages = 2;
+            state.currentPage = 1;
+            state.pagesText = [
+                `Artificial Intelligence and Machine Learning in Modern Healthcare.
+Abstract: Recent advancements in Deep Learning models have revolutionized medical imaging and diagnostic procedures.
+
+Table 1: AI Model Performance Comparison
+Model Name | Target Task | Accuracy (%) | Processing Time (ms)
+MedVision-V1 | Chest X-Ray Diagnosis | 94.2% | 120ms
+BioGPT-4 | Clinical Record Mining | 97.8% | 310ms
+HealthOcr-X | Medical Bill Processing | 98.5% | 85ms
+
+1. Introduction: Digital transformation in clinical workflows requires seamless integration of automated tools while maintaining patient privacy and GDPR compliance.`,
+                `2. Methodology & Future Scope:
+Our framework utilizes zero-shot classification to analyze radiographic imagery. Experimental results demonstrate a 98.4% accuracy across diverse demographics.
+Conclusion: AI-assisted diagnosis promises to bridge the global healthcare accessibility gap, especially in low-resource regional hospitals.`
+            ];
+            state.translatedPages = new Array(2).fill('');
+            state.auxiliaryInfo = new Array(2).fill('');
+
+            fileNameEl.textContent = state.pdfFileName;
+            fileMetaEl.textContent = "총 2페이지 • 표 예시 포함 데모 문서";
+            totalPagesNumEl.textContent = 2;
+            currentPageNumEl.textContent = 1;
+
+            dropzoneArea.classList.add('hidden');
+            documentView.classList.remove('hidden');
+            translateBtn.disabled = false;
+
+            drawMockPdfCanvas(1);
+            showToast("샘플 PDF가 로드되었습니다! [번역 시작하기]를 누르세요.");
+        });
+
+        function drawMockPdfCanvas(pageNum) {
+            const canvas = pdfRenderCanvas;
+            const ctx = canvas.getContext('2d');
+            canvas.width = 600;
+            canvas.height = 800;
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#f59e0b';
+            ctx.fillRect(40, 40, 520, 8);
+
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 20px Inter, sans-serif';
+            ctx.fillText(pageNum === 1 ? "Artificial Intelligence in Healthcare" : "Methodology & Future Scope", 40, 90);
+
+            ctx.fillStyle = '#64748b';
+            ctx.font = '14px Inter, sans-serif';
+            const lines = pageNum === 1 ? [
+                "Abstract:",
+                "Recent advancements in Deep Learning models have",
+                "revolutionized medical imaging and diagnostic procedures.",
+                "Transformers and LLMs allow multi-modal analysis of patient data,",
+                "improving treatment precision.",
+                "",
+                "1. Introduction:",
+                "Digital transformation in clinical workflows requires seamless",
+                "integration of automated tools while maintaining patient privacy."
+            ] : [
+                "2. Methodology & Future Scope:",
+                "Our framework utilizes zero-shot classification to analyze",
+                "radiographic imagery. Experimental results demonstrate a 98.4%",
+                "accuracy across diverse demographics.",
+                "",
+                "Conclusion:",
+                "AI-assisted diagnosis promises to bridge the global healthcare",
+                "accessibility gap in regional hospitals."
+            ];
+
+            let y = 140;
+            lines.forEach(line => {
+                ctx.fillText(line, 40, y);
+                y += 30;
+            });
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '12px Inter, sans-serif';
+            ctx.fillText(`Page ${pageNum} of 2 - AI Research Paper Sample`, 40, 760);
+
+            extractedRawTextEl.textContent = state.pagesText[pageNum - 1];
+        }
+
+        // ================= 댓글 / 방명록 로직 (무로그인) =================
         const COMMENT_STORAGE_KEY = 'kim_mango_comments';
 
         function loadComments() {
@@ -147,7 +1208,7 @@
                         <span class="font-bold text-xs sm:text-sm text-slate-800">${escapeHtml(c.author)}</span>
                         <div class="flex items-center gap-2">
                             <span class="text-[11px] text-slate-400">${c.date}</span>
-                            <button onclick="deleteComment(${index})" class="text-xs text-slate-400 hover:text-red-500 transition-colors">
+                            <button onclick="deleteComment(${index})" class="text-xs text-slate-400 hover:text-red-500 transition-colors" title="삭제">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </div>
@@ -182,6 +1243,7 @@
             document.getElementById('commentText').value = '';
 
             loadComments();
+            showToast("댓글이 등록되었습니다!");
         });
 
         function deleteComment(index) {
@@ -194,6 +1256,7 @@
                 comments.splice(index, 1);
                 localStorage.setItem(COMMENT_STORAGE_KEY, JSON.stringify(comments));
                 loadComments();
+                showToast("댓글이 삭제되었습니다.");
             } else {
                 alert('비밀번호가 일치하지 않습니다.');
             }
@@ -203,7 +1266,7 @@
             return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
-        // 초기 댓글 로드
+        // Initialize Comments on page load
         loadComments();
     </script>
 </body>
